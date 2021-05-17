@@ -1,2 +1,43 @@
-# mpv-youtube-notify-send
-Send notification from currently playing track (youtube)
+# mpv-youtube-notify
+⚠ Note: This script is originaly from [mpv-notify](https://github.com/rohieb/mpv-notify), I just modify it a little :)
+
+----
+
+Description
+--------
+Adds desktop notifications to the [mpv](http://mpv.io) media player when streaming from youtube, which show
+cover album and title when the playlist changes.
+
+Features
+--------
+* shows youtube video title
+* tries to find load cover art from coverartarchive.org and caches it locally.
+
+Requirements
+------------
+
+* [mpv](http://mpv.io) (>= 0.3.6)
+* [Lua](http://lua.org) (>= 5.2)
+* [lua-socket](http://w3.impa.br/~diego/software/luasocket/)
+* [lua-posix](https://github.com/luaposix/luaposix)
+* `notify-send` from [libnotify](https://github.com/GNOME/libnotify)
+* `convert` from [ImageMagick](http://www.imagemagick.org)
+
+On recent Debians, do a `sudo apt install lua-socket lua-posix libnotify-bin imagemagick`
+
+How to use
+----------
+
+Play youtube from list:
+
+    mpv --script=/path/to/youtube-notify.lua --playlist=/path/to/youtube/playlist.lst --no-video --shuffle
+
+Play youtube directly:
+
+    mpv --script=/path/to/youtube-notify.lua https://www.youtube.com/watch?v=SlPhMPnQ58k --no-video
+    
+License
+-------
+
+[mpv-notify](https://github.com/rohieb/mpv-notify) was written by Roland Hieber <rohieb at rohieb.name>, you can use it
+under the terms of the [MIT license](http://choosealicense.com/licenses/mit/).
