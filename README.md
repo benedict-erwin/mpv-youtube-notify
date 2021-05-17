@@ -5,7 +5,7 @@
 
 Description
 --------
-Adds desktop notifications to the [mpv](http://mpv.io) media player when streaming from youtube, which show
+Add desktop notifications to the [mpv](http://mpv.io) media player when streaming from youtube, which show
 cover album and title when the playlist changes.
 
 Features
