@@ -56,6 +56,8 @@ end
 
 -- converts string to a valid filename on most (modern) filesystems
 function string.safe_filename(str)
+	str = string.lower(str)
+	str = str:gsub("(%l)(%w*)", function(a,b) return string.upper(a)..b end)
 	str = string.gsub(str, "%s+", "_")
 	local s, _ = string.gsub(str, "([^A-Za-z0-9_.-])",
 		function(c)
@@ -68,7 +70,7 @@ end
 -- here we go.
 -------------------------------------------------------------------------------
 
-local http = require("socket.http")
+local http = require("ssl.https")
 http.TIMEOUT = 3
 http.USERAGENT = "mpv-notify/0.1"
 
@@ -176,6 +178,40 @@ function fetch_musicbrainz_cover_art(title)
 end
 
 function notify_current_track()
+	-- Check if MPV Icon exists
+	-- TODO: dirty hack, may only work on Linux.
+	icon_filename = (CACHE_DIR .. "/%s.png"):format('mpv-icon')
+	f, err = io.open(icon_filename, "r")
+	if f then
+		print_debug("file is already in cache: " .. icon_filename)
+	elseif string.find(err, "[Pp]ermission denied") then
+		print(("cannot read from cached file %s: %s"):format(icon_filename, err))
+	end
+
+	-- Download MPV Icon
+	local d, c, h = http.request("https://cdn.icon-icons.com/icons2/1381/PNG/512/mpv_93749.png")
+	if c ~= 200 then
+		print(("Default cover not found!"))
+	end
+	if not d or string.len(d) < 1 then
+		print(("Cover Art Archive returned no content"))
+		print_debug("HTTP response: " .. d)
+	end
+
+	local tmp_mpvicon = tmpname()
+	local f = io.open(tmp_mpvicon, "w+")
+	f:write(d)
+	f:flush()
+	f:close()
+
+	-- make it a nice size
+	if scale_image(tmp_mpvicon, icon_filename) then
+		if not os.remove(tmp_mpvicon) then
+			print("could not remove" .. tmp_mpvicon .. ", please remove it manually")
+		end
+	end
+
+	-- Get youtube title
 	local yt_url = mp.get_property_native("path")
 	local ytcommand = ("youtube-dl --skip-download --get-title %s"):format(yt_url)
 	local handle = io.popen(ytcommand)
@@ -186,8 +222,12 @@ function notify_current_track()
 		return
 	end
 
+	-- UC Words title
+	title = string.lower(title)
+	title = title:gsub("(%l)(%w*)", function(a,b) return string.upper(a)..b end)
 	print_debug("notify_current_track: relevant metadata:")
 	print_debug("Track title: " .. title)
+	print("Title : " .. title)
 
 	local body = ""
 	local params = ""
@@ -203,6 +243,9 @@ function notify_current_track()
 	if scaled_image and string.len(scaled_image) > 1  then
 		print("found cover art in " .. cover_image)
 		params = " -i " .. string.shellescape(scaled_image)
+	else
+		print("no cover art, use default icon : " .. icon_filename)
+		params = " -i " .. string.shellescape(icon_filename)
 	end
 
 	if title == "" then
