@@ -70,9 +70,15 @@ end
 -- here we go.
 -------------------------------------------------------------------------------
 
-local http = require("ssl.https")
-http.TIMEOUT = 3
-http.USERAGENT = "mpv-notify/0.1"
+local http = require("socket.http")
+local https = require("ssl.https")
+local timeout = 3
+local uagen = "youtube-notify/0.1"
+
+http.TIMEOUT = timeout
+http.USERAGENT = uagen
+https.TIMEOUT = timeout
+https.USERAGENT = uagen
 
 local posix = require("posix")
 
@@ -189,7 +195,7 @@ function notify_current_track()
 	end
 
 	-- Download MPV Icon
-	local d, c, h = http.request("https://cdn.icon-icons.com/icons2/1381/PNG/512/mpv_93749.png")
+	local d, c, h = https.request("https://cdn.icon-icons.com/icons2/1381/PNG/512/mpv_93749.png")
 	if c ~= 200 then
 		print(("Default cover not found!"))
 	end
