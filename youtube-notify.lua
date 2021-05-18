@@ -26,7 +26,7 @@
 -------------------------------------------------------------------------------
 
 function print_debug(s)
-	print("DEBUG: " .. s) -- comment out for no debug info
+	-- print("DEBUG: " .. s) -- comment out for no debug info
 	return true
 end
 
@@ -56,6 +56,7 @@ end
 
 -- converts string to a valid filename on most (modern) filesystems
 function string.safe_filename(str)
+	str = string.gsub(str, "%s+", "_")
 	local s, _ = string.gsub(str, "([^A-Za-z0-9_.-])",
 		function(c)
 			return ("%02x"):format(c:byte())
