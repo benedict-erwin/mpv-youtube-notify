@@ -192,28 +192,29 @@ function notify_current_track()
 		print_debug("file is already in cache: " .. icon_filename)
 	elseif string.find(err, "[Pp]ermission denied") then
 		print(("cannot read from cached file %s: %s"):format(icon_filename, err))
-	end
+		return nil
+	else
+		-- Download MPV Icon
+		local d, c, h = https.request("https://cdn.icon-icons.com/icons2/1381/PNG/512/mpv_93749.png")
+		if c ~= 200 then
+			print(("Default cover not found!"))
+		end
+		if not d or string.len(d) < 1 then
+			print(("Cover Art Archive returned no content"))
+			print_debug("HTTP response: " .. d)
+		end
 
-	-- Download MPV Icon
-	local d, c, h = https.request("https://cdn.icon-icons.com/icons2/1381/PNG/512/mpv_93749.png")
-	if c ~= 200 then
-		print(("Default cover not found!"))
-	end
-	if not d or string.len(d) < 1 then
-		print(("Cover Art Archive returned no content"))
-		print_debug("HTTP response: " .. d)
-	end
+		local tmp_mpvicon = tmpname()
+		local f = io.open(tmp_mpvicon, "w+")
+		f:write(d)
+		f:flush()
+		f:close()
 
-	local tmp_mpvicon = tmpname()
-	local f = io.open(tmp_mpvicon, "w+")
-	f:write(d)
-	f:flush()
-	f:close()
-
-	-- make it a nice size
-	if scale_image(tmp_mpvicon, icon_filename) then
-		if not os.remove(tmp_mpvicon) then
-			print("could not remove" .. tmp_mpvicon .. ", please remove it manually")
+		-- make it a nice size
+		if scale_image(tmp_mpvicon, icon_filename) then
+			if not os.remove(tmp_mpvicon) then
+				print("could not remove" .. tmp_mpvicon .. ", please remove it manually")
+			end
 		end
 	end
 
@@ -260,7 +261,7 @@ function notify_current_track()
 		body = string.shellescape(("%s"):format(string.htmlescape(title)))
 	end
 
-	local command = ("notify-send -a mpv %s 'MPV Player' %s"):format(params, body)
+	local command = ("notify-send -a mpv %s 'Now Playing' %s"):format(params, body)
 	print_debug("command: " .. command)
 	os.execute(command)
 
