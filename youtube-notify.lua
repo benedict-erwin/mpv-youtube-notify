@@ -184,6 +184,9 @@ function fetch_musicbrainz_cover_art(title)
 end
 
 function notify_current_track()
+	-- Pause MPV
+	mp.set_property_native("pause", true)
+
 	-- Check if MPV Icon exists
 	-- TODO: dirty hack, may only work on Linux.
 	icon_filename = (CACHE_DIR .. "/%s.png"):format('mpv-icon')
@@ -264,6 +267,10 @@ function notify_current_track()
 	local command = ("notify-send -a mpv %s 'Now Playing' %s"):format(params, body)
 	print_debug("command: " .. command)
 	os.execute(command)
+
+	-- Play MPV
+	posix.sleep(1)
+	mp.set_property_native("pause", false)
 
 	if delete_scaled_image and not os.remove(scaled_image) then
 		print("could not remove" .. scaled_image .. ", please remove it manually")
