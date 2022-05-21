@@ -28,7 +28,7 @@ On recent Debians, do a `sudo apt install lua-socket lua-sec lua-posix libnotify
 
 How to use
 ----------
-
+Copy this lua script to ```~/.config/mpv/scripts/``` so MPV will automatic load it or use direct load
 Play youtube from list:
 
     mpv --script=/path/to/youtube-notify.lua --playlist=/path/to/youtube/playlist.lst --no-video --shuffle
@@ -36,7 +36,7 @@ Play youtube from list:
 Play youtube directly:
 
     mpv --script=/path/to/youtube-notify.lua https://www.youtube.com/watch?v=SlPhMPnQ58k --no-video
-    
+
 License
 -------
 

@@ -1,5 +1,5 @@
 -- notify.lua -- Desktop notifications for mpv.
--- Just put this file into your ~/.mpv/lua folder and mpv will find it.
+-- Just put this file into your ~/.config/mpv/scripts folder and mpv will find it.
 --
 -- Copyright (c) 2014 Roland Hieber
 --
@@ -57,26 +57,24 @@ end
 -- converts string to a valid filename on most (modern) filesystems
 function string.safe_filename(str)
 	str = string.lower(str)
+	str = string.gsub(str, "([^A-Za-z0-9_ .-])",'')
 	str = str:gsub("(%l)(%w*)", function(a,b) return string.upper(a)..b end)
 	str = string.gsub(str, "%s+", "_")
 	local s, _ = string.gsub(str, "([^A-Za-z0-9_.-])",
 		function(c)
 			return ("%02x"):format(c:byte())
 		end)
+	s = s:sub(1, -2)
 	return s;
 end
 
 -------------------------------------------------------------------------------
 -- here we go.
 -------------------------------------------------------------------------------
-
-local http = require("socket.http")
 local https = require("ssl.https")
 local timeout = 3
-local uagen = "youtube-notify/0.1"
+local uagen = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.64 Safari/537.36"
 
-http.TIMEOUT = timeout
-http.USERAGENT = uagen
 https.TIMEOUT = timeout
 https.USERAGENT = uagen
 
@@ -93,10 +91,54 @@ function tmpname()
 	return fname
 end
 
+-- Generate md5 string for filename
+function md5_name(str)
+	local cmd = ("echo %s | md5sum"):format(string.shellescape(str))
+	local fn = io.popen(cmd)
+	local rs = fn:read("*a")
+	fn:close()
+	rs  = string.gsub(rs, "%W", "")
+	return rs
+end
+
+-- Recursive fetch image url
+function get_image_url(url)
+	-- exec url
+	local d, c, h = https.request(url)
+
+	-- return result on 200
+	if c == 200 then
+		return d
+	end
+
+	-- keep going on 300++
+	print_debug("Http code: " .. c)
+	if (c >= 300 and c < 400) then
+		if type(h) == "table" then
+			for k, v in pairs(h) do
+				if k == "location" then
+					print_debug(("[IMAGE_URL] - %s"):format(v))
+					d, c, h = get_image_url(v)
+					return d
+				end
+			end
+		end
+	end
+
+	-- skip on 404
+	if c == 404 then
+		print_debug("Cover album not found")
+		return nil
+	end
+
+	-- not found
+	return nil
+end
+
 -- scale an image file
 -- @return boolean of success
 function scale_image(src, dst)
-	local convert_cmd = ("convert -scale x64 -- %s %s"):format(
+	local convert_cmd = ("convert -scale x64 %s %s"):format(
 		string.shellescape(src), string.shellescape(dst))
 	print_debug("executing " .. convert_cmd)
 	if os.execute(convert_cmd) then
@@ -117,8 +159,9 @@ function fetch_musicbrainz_cover_art(title)
 		return nil
 	end
 
-	local output_filename = string.safe_filename(title)
+	local output_filename = md5_name(string.safe_filename(title))
 	local mbid = ""
+	print_debug("Safe filename: " .. output_filename)
 	output_filename = (CACHE_DIR .. "/%s.png"):format(output_filename)
 
 	-- TODO: dirty hack, may only work on Linux.
@@ -126,7 +169,7 @@ function fetch_musicbrainz_cover_art(title)
 	if f then
 		print_debug("file is already in cache: " .. output_filename)
 		return output_filename  -- exists and is readable
-	elseif string.find(err, "[Pp]ermission denied") then
+	elseif string.find(err, "[P]ermission denied") then
 		print(("cannot read from cached file %s: %s"):format(output_filename, err))
 		return nil
 	end
@@ -139,9 +182,9 @@ function fetch_musicbrainz_cover_art(title)
 	-- fetch release MBID from MusicBrainz, needed for Cover Art Archive
 	if title then
 		local query = ("%s"):format(title)
-		local url = "http://musicbrainz.org/ws/2/release?limit=1&query=" .. string.urlescape(query)
-		local d, c, h = http.request(url)
-		
+		local url = "https://musicbrainz.org/ws/2/release?limit=1&query=" .. string.urlescape(query)
+		local d, c, h = https.request(url)
+
 		-- poor man's XML parsing:
 		mbid = string.match(d or "", "<%s*release%s+[^>]*id%s*=%s*['\"]%s*([0-9a-fA-F-]+)%s*['\"]")
 		if not mbid or not valid_mbid(mbid) then
@@ -149,19 +192,15 @@ function fetch_musicbrainz_cover_art(title)
 			return nil
 		end
 	end
-	
+
 	-- fetch image from Cover Art Archive
 	print_debug("got MusicBrainz ID " .. mbid)
-	local url = ("http://coverartarchive.org/release/%s/front-250"):format(mbid)
+	local url = ("https://coverartarchive.org/release/%s/front-250"):format(mbid)
 	print("fetching album cover from " .. url)
-	local d, c, h = http.request(url)
-	if c ~= 200 then
-		print(("Cover Art Archive returned HTTP %s for MBID %s"):format(c, mbid))
-		return nil
-	end
+	local d = get_image_url(url)
+
 	if not d or string.len(d) < 1 then
 		print(("Cover Art Archive returned no content for MBID %s"):format(mbid))
-		print_debug("HTTP response: " .. d)
 		return nil
 	end
 
@@ -171,15 +210,21 @@ function fetch_musicbrainz_cover_art(title)
 	f:flush()
 	f:close()
 
-	-- make it a nice size
-	if scale_image(tmp_filename, output_filename) then
+	-- remove if not found
+	if string.find(d, "Not Found") then
 		if not os.remove(tmp_filename) then
 			print("could not remove" .. tmp_filename .. ", please remove it manually")
 		end
-		return output_filename
+	else
+		-- make it a nice size
+		if scale_image(tmp_filename, output_filename) then
+			if not os.remove(tmp_filename) then
+				print("could not remove" .. tmp_filename .. ", please remove it manually")
+			end
+			return output_filename
+		end
+		print(("could not scale %s to %s"):format(tmp_filename, output_filename))
 	end
-
-	print(("could not scale %s to %s"):format(tmp_filename, output_filename))
 	return nil
 end
 
@@ -227,7 +272,7 @@ function notify_current_track()
 	local handle = io.popen(ytcommand)
 	local title = handle:read("*a")
 	handle:close()
-	
+
 	if not title then
 		return
 	end
@@ -242,7 +287,6 @@ function notify_current_track()
 	local body = ""
 	local params = ""
 	local scaled_image = ""
-	local delete_scaled_image = false
 
 	-- then load cover art from the internet
 	if (not scaled_image or scaled_image == "" and title ~= "") then
@@ -258,23 +302,20 @@ function notify_current_track()
 		params = " -i " .. string.shellescape(icon_filename)
 	end
 
+	title = string.gsub(title, '[ \t]+%f[\r\n%z]', '')
 	if title == "" then
 		body = string.shellescape(mp.get_property_native("filename"))
 	else
-		body = string.shellescape(("%s"):format(string.htmlescape(title)))
+		body = string.shellescape(("%s"):format(title))
 	end
 
-	local command = ("notify-send -a mpv %s 'Now Playing' %s"):format(params, body)
+	local command = ("notify-send -a mpv %s %s ' is now playing in MPV'"):format(params, body)
 	print_debug("command: " .. command)
 	os.execute(command)
 
 	-- Play MPV
 	posix.sleep(1)
 	mp.set_property_native("pause", false)
-
-	if delete_scaled_image and not os.remove(scaled_image) then
-		print("could not remove" .. scaled_image .. ", please remove it manually")
-	end
 end
 
 mp.register_event("file-loaded", notify_current_track)
