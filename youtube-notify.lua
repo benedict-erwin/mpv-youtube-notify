@@ -102,37 +102,60 @@ function md5_name(str)
 end
 
 -- Recursive fetch image url
-function get_image_url(url)
+function get_image_url(url, yt_url)
 	-- exec url
 	local d, c, h = https.request(url)
 
-	-- return result on 200
-	if c == 200 then
-		return d
-	end
-
-	-- keep going on 300++
-	print_debug("Http code: " .. c)
-	if (c >= 300 and c < 400) then
-		if type(h) == "table" then
-			for k, v in pairs(h) do
-				if k == "location" then
-					print_debug(("[IMAGE_URL] - %s"):format(v))
-					d, c, h = get_image_url(v)
-					return d
+	-- only process if number
+	if type(c) == "number" then
+		-- return result on 200
+		if c == 200 then
+			return d
+		end
+	
+		-- keep going on 300++
+		print_debug("Http code: " .. c)
+		if (c >= 300 and c < 400) then
+			if type(h) == "table" then
+				for k, v in pairs(h) do
+					if k == "location" then
+						print_debug(("[IMAGE_URL] - %s"):format(v))
+						d, c, h = get_image_url(v, yt_url)
+						return d
+					end
 				end
 			end
 		end
 	end
 
-	-- skip on 404
-	if c == 404 then
-		print_debug("Cover album not found")
+	local thumb = get_youtube_thumbnail(yt_url)
+	if thumb ~= nil then
+		print_debug(("[IMAGE_URL] - %s"):format(thumb))
+		d, c, h = https.request(thumb)
+		print_debug(("[IMAGE_URL] code - %s"):format(c))
+		if c == 200 then
+			return d
+		end
+	end
+	
+	-- not found
+	print_debug("Cover album not found")
+	return nil
+end
+
+-- Get thumbnail from youtube url
+function get_youtube_thumbnail(yt_url)
+	local ytcommand = ("youtube-dl --get-thumbnail --skip-download %s"):format(yt_url)
+	local handle = io.popen(ytcommand)
+	local thumb = handle:read("*a")
+	handle:close()
+
+	if not thumb then
 		return nil
 	end
-
-	-- not found
-	return nil
+	thumb = string.gsub(thumb, '%s+', '')
+	print("get_youtube_thumbnail: " .. thumb)
+	return thumb
 end
 
 -- scale an image file
@@ -150,7 +173,7 @@ end
 -- fetch cover art from MusicBrainz/Cover Art Archive
 -- @return file name of downloaded cover art, or nil in case of error
 -- @param mbid optional MusicBrainz release ID
-function fetch_musicbrainz_cover_art(title)
+function fetch_musicbrainz_cover_art(title, yt_url)
 	print_debug("fetch_musicbrainz_cover_art parameters:")
 	print_debug("title: " .. title)
 
@@ -197,7 +220,7 @@ function fetch_musicbrainz_cover_art(title)
 	print_debug("got MusicBrainz ID " .. mbid)
 	local url = ("https://coverartarchive.org/release/%s/front-250"):format(mbid)
 	print("fetching album cover from " .. url)
-	local d = get_image_url(url)
+	local d = get_image_url(url, yt_url)
 
 	if not d or string.len(d) < 1 then
 		print(("Cover Art Archive returned no content for MBID %s"):format(mbid))
@@ -290,7 +313,7 @@ function notify_current_track()
 
 	-- then load cover art from the internet
 	if (not scaled_image or scaled_image == "" and title ~= "") then
-		scaled_image = fetch_musicbrainz_cover_art(title)
+		scaled_image = fetch_musicbrainz_cover_art(title, yt_url)
 		cover_image = scaled_image
 	end
 
