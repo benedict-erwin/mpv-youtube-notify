@@ -102,32 +102,36 @@ function md5_name(str)
 end
 
 -- Recursive fetch image url
-function get_image_url(url, yt_url)
-	-- exec url
-	local d, c, h = https.request(url)
+function get_image_url(url, yt_url, force)
+	-- force?
+	if force == nil then
+		-- exec url
+		local d, c, h = https.request(url)
 
-	-- only process if number
-	if type(c) == "number" then
-		-- return result on 200
-		if c == 200 then
-			return d
-		end
-	
-		-- keep going on 300++
-		print_debug("Http code: " .. c)
-		if (c >= 300 and c < 400) then
-			if type(h) == "table" then
-				for k, v in pairs(h) do
-					if k == "location" then
-						print_debug(("[IMAGE_URL] - %s"):format(v))
-						d, c, h = get_image_url(v, yt_url)
-						return d
+		-- only process if number
+		if type(c) == "number" then
+			-- return result on 200
+			if c == 200 then
+				return d
+			end
+		
+			-- keep going on 300++
+			print_debug("Http code: " .. c)
+			if (c >= 300 and c < 400) then
+				if type(h) == "table" then
+					for k, v in pairs(h) do
+						if k == "location" then
+							print_debug(("[IMAGE_URL] - %s"):format(v))
+							d, c, h = get_image_url(v, yt_url)
+							return d
+						end
 					end
 				end
 			end
 		end
 	end
 
+	print_debug(("Try get from youtube - %s"):format(yt_url))
 	local thumb = get_youtube_thumbnail(yt_url)
 	if thumb ~= nil then
 		print_debug(("[IMAGE_URL] - %s"):format(thumb))
@@ -151,6 +155,7 @@ function get_youtube_thumbnail(yt_url)
 	handle:close()
 
 	if not thumb then
+		print_debug("[thumbnail] not found!")
 		return nil
 	end
 	thumb = string.gsub(thumb, '%s+', '')
@@ -212,19 +217,22 @@ function fetch_musicbrainz_cover_art(title, yt_url)
 		mbid = string.match(d or "", "<%s*release%s+[^>]*id%s*=%s*['\"]%s*([0-9a-fA-F-]+)%s*['\"]")
 		if not mbid or not valid_mbid(mbid) then
 			print("MusicBrainz returned no match.")
-			return nil
+			print("Fetch thumbnail from youtube...")
+			local d = get_image_url(url, yt_url, true)
 		end
 	end
 
 	-- fetch image from Cover Art Archive
-	print_debug("got MusicBrainz ID " .. mbid)
-	local url = ("https://coverartarchive.org/release/%s/front-250"):format(mbid)
-	print("fetching album cover from " .. url)
-	local d = get_image_url(url, yt_url)
-
 	if not d or string.len(d) < 1 then
-		print(("Cover Art Archive returned no content for MBID %s"):format(mbid))
-		return nil
+		print_debug("got MusicBrainz ID " .. mbid)
+		local url = ("https://coverartarchive.org/release/%s/front-250"):format(mbid)
+		print("fetching album cover from " .. url)
+		local d = get_image_url(url, yt_url)
+	
+		if not d or string.len(d) < 1 then
+			print(("Cover Art Archive returned no content for MBID %s"):format(mbid))
+			return nil
+		end
 	end
 
 	local tmp_filename = tmpname()
@@ -302,6 +310,7 @@ function notify_current_track()
 
 	-- UC Words title
 	title = string.lower(title)
+	title = string.gsub(title, '%s+', '')
 	title = title:gsub("(%l)(%w*)", function(a,b) return string.upper(a)..b end)
 	print_debug("notify_current_track: relevant metadata:")
 	print_debug("Track title: " .. title)
