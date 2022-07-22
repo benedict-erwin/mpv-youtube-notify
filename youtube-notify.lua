@@ -102,7 +102,7 @@ function md5_name(str)
 end
 
 -- Recursive fetch image url
-function get_image_url(url, yt_url, force)
+function get_image_url(url, yt_url)
 	-- force?
 	if force == nil then
 		-- exec url
@@ -122,7 +122,7 @@ function get_image_url(url, yt_url, force)
 					for k, v in pairs(h) do
 						if k == "location" then
 							print_debug(("[IMAGE_URL] - %s"):format(v))
-							d, c, h = get_image_url(v, yt_url)
+							d, c, h = get_image_url(v)
 							return d
 						end
 					end
@@ -130,19 +130,21 @@ function get_image_url(url, yt_url, force)
 			end
 		end
 	end
+	return download_youtube_thumbnail(yt_url)
+end
 
+function download_youtube_thumbnail(yt_url)
+	print("Fetch thumbnail from youtube.")
 	print_debug(("Try get from youtube - %s"):format(yt_url))
 	local thumb = get_youtube_thumbnail(yt_url)
 	if thumb ~= nil then
 		print_debug(("[IMAGE_URL] - %s"):format(thumb))
-		d, c, h = https.request(thumb)
+		local d, c, h = https.request(thumb)
 		print_debug(("[IMAGE_URL] code - %s"):format(c))
 		if c == 200 then
 			return d
 		end
 	end
-	
-	-- not found
 	print_debug("Cover album not found")
 	return nil
 end
@@ -159,7 +161,7 @@ function get_youtube_thumbnail(yt_url)
 		return nil
 	end
 	thumb = string.gsub(thumb, '%s+', '')
-	print("get_youtube_thumbnail: " .. thumb)
+	print_debug("get_youtube_thumbnail: " .. thumb)
 	return thumb
 end
 
@@ -217,8 +219,7 @@ function fetch_musicbrainz_cover_art(title, yt_url)
 		mbid = string.match(d or "", "<%s*release%s+[^>]*id%s*=%s*['\"]%s*([0-9a-fA-F-]+)%s*['\"]")
 		if not mbid or not valid_mbid(mbid) then
 			print("MusicBrainz returned no match.")
-			print("Fetch thumbnail from youtube...")
-			d = get_image_url(url, yt_url, true)
+			d = download_youtube_thumbnail(yt_url)
 			mbid = 'failed'
 			if d == nil then
 				return nil
@@ -230,7 +231,7 @@ function fetch_musicbrainz_cover_art(title, yt_url)
 	if valid_mbid(mbid) then
 		print_debug("got MusicBrainz ID " .. mbid)
 		local url = ("https://coverartarchive.org/release/%s/front-250"):format(mbid)
-		print("fetching album cover from " .. url)
+		print_debug("fetching album cover from " .. url)
 		local d = get_image_url(url, yt_url)
 
 		if not d or string.len(d) < 1 then
@@ -238,13 +239,20 @@ function fetch_musicbrainz_cover_art(title, yt_url)
 			return nil
 		end
 	end
-	
+
+	if not d or string.len(d) < 1 then
+		d = download_youtube_thumbnail(yt_url)
+		if d == nil then
+			return nil
+		end
+	end
+
 	local tmp_filename = tmpname()
 	local f = io.open(tmp_filename, "w+")
 	f:write(d)
 	f:flush()
 	f:close()
-
+	
 	-- remove if not found
 	if string.find(d, "Not Found") then
 		if not os.remove(tmp_filename) then
@@ -314,12 +322,12 @@ function notify_current_track()
 
 	-- UC Words title
 	title = string.lower(title)
-	title = string.gsub(title, '%s+', '')
 	title = title:gsub("(%l)(%w*)", function(a,b) return string.upper(a)..b end)
+	local showTitle = string.gsub(title, "\n", "")
+	title = string.gsub(title, '%s+', '')
 	print_debug("notify_current_track: relevant metadata:")
-	print_debug("Track title: " .. title)
-	print("Title : " .. title)
-
+	print_debug("Track title: " .. showTitle)
+	
 	local body = ""
 	local params = ""
 	local scaled_image = ""
@@ -331,14 +339,14 @@ function notify_current_track()
 	end
 
 	if scaled_image and string.len(scaled_image) > 1  then
-		print("found cover art in " .. cover_image)
+		print_debug("found cover art in " .. cover_image)
 		params = " -i " .. string.shellescape(scaled_image)
 	else
 		print("no cover art, use default icon : " .. icon_filename)
 		params = " -i " .. string.shellescape(icon_filename)
 	end
 
-	title = string.gsub(title, '[ \t]+%f[\r\n%z]', '')
+	title = string.gsub(showTitle, '[ \t]+%f[\r\n%z]', '')
 	if title == "" then
 		body = string.shellescape(mp.get_property_native("filename"))
 	else
@@ -348,6 +356,7 @@ function notify_current_track()
 	local command = ("notify-send -a mpv %s %s ' is now playing in MPV'"):format(params, body)
 	print_debug("command: " .. command)
 	os.execute(command)
+	print("\n")
 
 	-- Play MPV
 	posix.sleep(1)
