@@ -34,9 +34,9 @@ Play youtube from list with additional option:
 
     mpv --script=/path/to/youtube-notify.lua --playlist=/path/to/youtube/playlist.lst --term-playing-msg='Title: ${media-title}' --ytdl-format="bestvideo[height<=?1080][vcodec!=vp9]+bestaudio/best" --no-video --shuffle --slang=id,en
 
-Play youtube directly:
+Play youtube directly with additional option:
 
-    mpv --script=/path/to/youtube-notify.lua https://www.youtube.com/watch?v=SlPhMPnQ58k --no-video
+    mpv --script=/path/to/youtube-notify.lua https://www.youtube.com/watch?v=SlPhMPnQ58k --term-playing-msg='Title: ${media-title}' --ytdl-format="bestvideo[height<=?1080][vcodec!=vp9]+bestaudio/best" --no-video --slang=id,en
 
 License
 -------
