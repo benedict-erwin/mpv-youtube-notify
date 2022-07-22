@@ -218,23 +218,27 @@ function fetch_musicbrainz_cover_art(title, yt_url)
 		if not mbid or not valid_mbid(mbid) then
 			print("MusicBrainz returned no match.")
 			print("Fetch thumbnail from youtube...")
-			local d = get_image_url(url, yt_url, true)
+			d = get_image_url(url, yt_url, true)
+			mbid = 'failed'
+			if d == nil then
+				return nil
+			end
 		end
 	end
 
 	-- fetch image from Cover Art Archive
-	if not d or string.len(d) < 1 then
+	if valid_mbid(mbid) then
 		print_debug("got MusicBrainz ID " .. mbid)
 		local url = ("https://coverartarchive.org/release/%s/front-250"):format(mbid)
 		print("fetching album cover from " .. url)
 		local d = get_image_url(url, yt_url)
-	
+
 		if not d or string.len(d) < 1 then
 			print(("Cover Art Archive returned no content for MBID %s"):format(mbid))
 			return nil
 		end
 	end
-
+	
 	local tmp_filename = tmpname()
 	local f = io.open(tmp_filename, "w+")
 	f:write(d)
