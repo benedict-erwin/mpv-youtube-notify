@@ -151,7 +151,7 @@ end
 
 -- Get thumbnail from youtube url
 function get_youtube_thumbnail(yt_url)
-	local ytcommand = ("youtube-dl --get-thumbnail --skip-download %s"):format(yt_url)
+	local ytcommand = ("yt-dlp --get-thumbnail --skip-download %s"):format(yt_url)
 	local handle = io.popen(ytcommand)
 	local thumb = handle:read("*a")
 	handle:close()
@@ -311,7 +311,7 @@ function notify_current_track()
 
 	-- Get youtube title
 	local yt_url = mp.get_property_native("path")
-	local ytcommand = ("youtube-dl --skip-download --get-title %s"):format(yt_url)
+	local ytcommand = ("yt-dlp --skip-download --get-title %s"):format(yt_url)
 	local handle = io.popen(ytcommand)
 	local title = handle:read("*a")
 	handle:close()
