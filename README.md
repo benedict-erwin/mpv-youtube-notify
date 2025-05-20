@@ -16,9 +16,10 @@ Add desktop notifications to the [mpv](http://mpv.io) media player when streamin
 * Cross-platform: supports both Linux and macOS
   
 ## Screenshots
-
+Linux Notification
 ![Linux Notification](https://raw.githubusercontent.com/benedict-erwin/mpv-youtube-notify/master/screenshots/linux_notification.png)
 
+MacOS Notification
 ![MacOS Notification](https://raw.githubusercontent.com/benedict-erwin/mpv-youtube-notify/master/screenshots/macos_notification.png) 
 
 ## Requirements and Installation
